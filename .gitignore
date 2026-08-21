@@ -1,0 +1,8 @@
+node_modules/
+popcrate.db*
+*.log
+nohup.out
+.env
+.env.*
+public/uploads/*
+!public/uploads/.gitkeep

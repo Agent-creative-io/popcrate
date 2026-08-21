@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POPCRATE! — Control Room</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0E0B20;--panel:#1B1440;--panel2:#251B55;--ink:#FFF7FF;--dim:#A79BD6;
+--pink:#FF4FA3;--cyan:#35E0FF;--yellow:#FFD23F;--lime:#7CFF6B;--orange:#FF6B4F;--purple:#B45CFF}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--ink);padding:26px;max-width:1240px;margin:0 auto}
+h1,h2,h3{font-family:'Fredoka',sans-serif}
+h1{font-size:1.7rem;margin-bottom:4px}h1 em{font-style:normal;color:var(--pink)}
+.sub{color:var(--dim);font-weight:800;font-size:.85rem;margin-bottom:18px}
+.panel{background:var(--panel);border:3px solid rgba(255,255,255,.9);border-radius:18px;box-shadow:0 6px 0 rgba(0,0,0,.4);padding:20px;margin-bottom:22px}
+button{font-family:'Fredoka',sans-serif;font-weight:600;border:3px solid #fff;border-radius:12px;padding:9px 16px;cursor:pointer;background:var(--cyan);color:#0A2530;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+button:hover{transform:translateY(-2px)}button:active{transform:translateY(1px)}
+button.pink{background:var(--pink);color:#fff}button.lime{background:var(--lime);color:#0F2A0C}
+button.warn{background:var(--orange);color:#fff}button.ghost{background:var(--panel2);color:var(--ink)}
+button.sm{padding:5px 10px;font-size:.75rem}
+input,select,textarea{background:var(--panel2);border:2px solid rgba(255,255,255,.7);border-radius:10px;color:#fff;font-weight:800;padding:8px 10px;font-family:inherit}
+input.sm{width:92px}
+textarea{width:100%;min-height:220px;font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:500;line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;color:var(--dim);font-weight:800;padding:8px 6px;border-bottom:2px solid rgba(255,255,255,.15)}
+td{padding:8px 6px;border-bottom:1px dashed rgba(255,255,255,.12);font-weight:700}
+.mono{font-family:'JetBrains Mono',monospace}
+.stat{display:inline-flex;flex-direction:column;gap:3px;background:var(--panel2);border:2px solid rgba(255,255,255,.5);border-radius:14px;padding:12px 18px;margin:0 10px 10px 0}
+.stat b{font-family:'Fredoka',sans-serif;font-size:1.3rem}.stat span{color:var(--dim);font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+.rtp-good{color:var(--lime)}.rtp-warn{color:var(--yellow)}.rtp-bad{color:var(--orange)}
+.case-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.case-head h3{font-size:1.15rem}
+.tune{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border-radius:12px;padding:10px 14px;margin:10px 0}
+.tune input[type=range]{width:180px}
+.msg{font-weight:800;font-size:.85rem;color:var(--lime);min-height:1.2em}
+.tag{font-size:.65rem;font-weight:800;letter-spacing:1px;background:var(--panel2);border:2px solid rgba(255,255,255,.4);border-radius:8px;padding:2px 8px;color:var(--dim)}
+#login{max-width:460px;margin:12vh auto}
+.hidden{display:none}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.tab{background:var(--panel2);color:var(--dim)}
+.tab.on{background:var(--yellow);color:#1A1033}
+.thumb{height:36px;border-radius:8px;border:2px solid rgba(255,255,255,.4)}
+</style>
+</head>
+<body>
+
+<div id="login" class="panel">
+  <h1>🔐 <em>POPCRATE!</em> Control Room</h1>
+  <p class="sub">Paste the admin key printed in the server console. If two-factor is on, add your 6-digit code.</p>
+  <div class="flex">
+    <input id="keyInput" style="flex:1;min-width:200px" placeholder="admin key" type="password">
+    <input id="otpInput" class="sm" placeholder="2FA code" inputmode="numeric" maxlength="6">
+    <button class="pink" onclick="saveKey()">Enter</button>
+  </div>
+  <p class="msg" id="loginMsg" style="color:var(--orange)"></p>
+</div>
+
+<div id="app" class="hidden">
+  <h1>🎛️ <em>POPCRATE!</em> Control Room</h1>
+  <p class="sub">Full CMS · exact win/loss control · every change is audit-logged ·
+    <button class="sm ghost" onclick="localStorage.removeItem('pc_admin');localStorage.removeItem('pc_otp');location.reload()">lock</button></p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <!-- ============ OVERVIEW ============ -->
+  <div data-tab="overview">
+    <div class="panel"><h2>📊 House overview</h2><div id="stats" style="margin-top:12px"></div></div>
+    <div id="cases"></div>
+  </div>
+
+  <!-- ============ CATALOG (CMS) ============ -->
+  <div data-tab="catalog" class="hidden">
+    <div class="panel">
+      <h2>➕ New crate</h2>
+      <div class="flex" style="margin-top:12px">
+        <input id="ncName" placeholder="name" style="min-width:170px"><input id="ncEmoji" class="sm" placeholder="emoji" value="🎁">
+        <input id="ncPrice" class="sm" placeholder="price 🪙" type="number" value="500">
+        <select id="ncStyle"><option>spinner</option><option>chest</option><option>pack</option><option>wheel</option></select>
+        <input id="ncDraws" class="sm" placeholder="draws" type="number" value="1" min="1" max="5">
+        <select id="ncCat"></select>
+        <input id="ncColor" class="sm" placeholder="#hex" value="#FF4FA3">
+        <input id="ncDesc" placeholder="description" style="flex:1;min-width:200px">
+        <button class="pink" onclick="createCrate()">Create (starts hidden)</button>
+      </div>
+      <p class="msg" id="ncMsg"></p>
+      <p class="sub" style="margin:8px 0 0">New crates start <b>inactive</b> — add items below, dial the RTP in 📊 Overview, then flip it live.</p>
+    </div>
+    <div class="panel">
+      <h2>🖼️ Media library</h2>
+      <div class="flex" style="margin-top:12px">
+        <input type="file" id="mediaFile" accept="image/png,image/jpeg,image/webp,image/gif">
+        <button onclick="uploadMedia()">Upload (≤3MB)</button><span class="msg" id="mediaMsg"></span>
+      </div>
+      <div id="mediaList" class="flex" style="margin-top:10px"></div>
+      <p class="sub" style="margin:8px 0 0">Paste an uploaded URL into any item's <b>image</b> field (📊 Overview) to swap its emoji for real product photography.</p>
+    </div>
+    <div id="catalogCases"></div>
+  </div>
+
+  <!-- ============ CATEGORIES ============ -->
+  <div data-tab="categories" class="hidden">
+    <div class="panel">
+      <h2>🏷️ Categories</h2>
+      <div class="flex" style="margin:12px 0">
+        <input id="catName" placeholder="name"><input id="catEmoji" class="sm" placeholder="emoji" value="📦">
+        <input id="catBlurb" placeholder="blurb" style="flex:1;min-width:200px"><input id="catSort" class="sm" placeholder="sort" type="number" value="50">
+        <button class="pink" onclick="createCat()">Add</button><span class="msg" id="catMsg"></span>
+      </div>
+      <table><thead><tr><th>emoji</th><th>name</th><th>blurb</th><th>sort</th><th>active</th><th></th></tr></thead><tbody id="catRows"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ============ MEMBERSHIPS ============ -->
+  <div data-tab="memberships" class="hidden">
+    <div class="panel">
+      <h2>👑 Membership tiers</h2>
+      <p class="sub" style="margin:6px 0 12px">Rakeback = tokens returned on every open (basis points: 300 = 3%). Perks are display lines, one per row.</p>
+      <div id="tierRows"></div>
+    </div>
+  </div>
+
+  <!-- ============ PAGES ============ -->
+  <div data-tab="pages" class="hidden">
+    <div class="panel">
+      <h2>📄 Content pages</h2>
+      <div class="flex" style="margin:12px 0">
+        <select id="pageSelect" onchange="pickPage()"></select>
+        <input id="pageSlug" placeholder="slug (new page)"><input id="pageTitleIn" placeholder="title" style="flex:1;min-width:180px">
+        <label style="font-weight:800;color:var(--dim)"><input type="checkbox" id="pagePub" checked> published</label>
+      </div>
+      <textarea id="pageBodyIn" placeholder="## Heading&#10;Body text with **bold**&#10;- bullet point"></textarea>
+      <div class="flex" style="margin-top:10px">
+        <button class="pink" onclick="savePage()">Save page</button>
+        <button class="warn" onclick="deletePage()">Delete</button>
+        <span class="msg" id="pageMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SITE ============ -->
+  <div data-tab="site" class="hidden">
+    <div class="panel">
+      <h2>🎨 Site copy</h2>
+      <p class="sub" style="margin:6px 0 12px">ALL-CAPS words in the hero title get the pink/yellow/lime pop treatment automatically.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="font-weight:800;color:var(--dim)">Hero title<br><input id="siteHero" style="width:100%"></label>
+        <label style="font-weight:800;color:var(--dim)">Hero subtitle<br><input id="siteSub" style="width:100%"></label>
+        <label style="font-weight:800;color:var(--dim)">Announcement bar (empty = hidden)<br><input id="siteAnn" style="width:100%"></label>
+      </div>
+      <div class="flex" style="margin-top:12px"><button class="pink" onclick="saveSite()">Publish</button><span class="msg" id="siteMsg"></span></div>
+    </div>
+  </div>
+
+  <!-- ============ USERS ============ -->
+  <div data-tab="users" class="hidden">
+    <div class="panel"><h2>👥 Players</h2>
+      <table style="margin-top:12px"><thead><tr><th>id</th><th>user</th><th>balance</th><th>tier</th><th>xp</th><th>adjust 🪙</th></tr></thead><tbody id="userRows"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ============ RAFFLES ============ -->
+  <div data-tab="raffles" class="hidden">
+    <div class="panel"><h2>🎟️ Raffles</h2>
+      <div class="flex" style="margin:12px 0">
+        <input id="rName" placeholder="name" style="flex:1;min-width:160px"><input id="rEmoji" class="sm" placeholder="emoji" value="🎁">
+        <input id="rPrize" class="sm" placeholder="prize 🪙" type="number"><input id="rTicket" class="sm" placeholder="ticket 🪙" type="number">
+        <input id="rMax" class="sm" placeholder="max" type="number"><input id="rHours" class="sm" placeholder="hours" type="number" value="24">
+        <button class="pink" onclick="createRaffle()">Create</button>
+      </div>
+      <p class="msg" id="rMsg"></p>
+      <table><thead><tr><th>id</th><th>raffle</th><th>sold</th><th>status</th><th>ends</th><th></th></tr></thead><tbody id="raffleRows"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ============ SECURITY ============ -->
+  <div data-tab="security" class="hidden">
+    <div class="panel">
+      <h2>🔐 Two-factor (TOTP)</h2>
+      <div id="totpOff" class="hidden">
+        <p class="sub" style="margin:8px 0">Add a 6-digit rotating code (Google Authenticator, 1Password, Aegis…) on top of the admin key.</p>
+        <button class="pink" onclick="totpSetup()">Enable 2FA</button>
+        <div id="totpPending" class="hidden" style="margin-top:12px">
+          <p style="font-weight:800">1) Add this secret to your authenticator app:</p>
+          <p class="mono" id="totpSecret" style="font-size:1.05rem;color:var(--yellow);margin:8px 0;word-break:break-all"></p>
+          <p class="mono" id="totpUri" style="font-size:.7rem;color:var(--dim);word-break:break-all"></p>
+          <div class="flex" style="margin-top:10px"><input id="totpCode" class="sm" placeholder="123456" maxlength="6"><button class="lime" onclick="totpConfirm()">2) Confirm code</button></div>
+        </div>
+      </div>
+      <div id="totpOn" class="hidden">
+        <p class="sub" style="margin:8px 0">✅ 2FA is <b style="color:var(--lime)">enabled</b>. Every admin request needs a fresh code (the panel asks at unlock).</p>
+        <button class="warn" onclick="totpDisable()">Disable 2FA</button>
+      </div>
+      <p class="msg" id="totpMsg"></p>
+    </div>
+    <div class="panel">
+      <h2>🚨 Recent lockouts (failed logins)</h2>
+      <table style="margin-top:12px"><thead><tr><th>key</th><th>fails (15 min)</th></tr></thead><tbody id="lockRows"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>🛡️ Active protections</h2>
+      <table style="margin-top:12px"><tbody>
+        <tr><td>CSRF</td><td>SameSite=Strict cookies + dual proof on every write (custom <span class="mono">X-PC</span> header OR verified same-origin Origin)</td></tr>
+        <tr><td>Headers</td><td>CSP, X-Frame-Options DENY, nosniff, COOP/CORP, HSTS (production)</td></tr>
+        <tr><td>Login</td><td>scrypt hashing · 15-min lockout after 8 fails per user &amp; per IP</td></tr>
+        <tr><td>Sessions</td><td>HMAC-signed httpOnly cookies · 30-day absolute + 3-day idle expiry</td></tr>
+        <tr><td>Payments</td><td>Idempotency keys — a replayed purchase can never double-credit</td></tr>
+        <tr><td>Anti-bot</td><td>Per-IP rate limits + 40 opens/min per-account velocity cap</td></tr>
+        <tr><td>Uploads</td><td>3MB cap · magic-byte sniffing (a renamed script can't pose as an image)</td></tr>
+        <tr><td>SQL / XSS</td><td>100% parameterized queries · strict CSP · input length clamps</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+
+  <!-- ============ AUDIT ============ -->
+  <div data-tab="audit" class="hidden">
+    <div class="panel"><h2>🧾 Audit log</h2>
+      <table style="margin-top:12px"><thead><tr><th>when</th><th>actor</th><th>action</th><th>meta</th></tr></thead><tbody id="auditRows"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>Number(n).toLocaleString();
+let KEY=localStorage.getItem('pc_admin')||'', OTP=localStorage.getItem('pc_otp')||'';
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+async function api(path,body){
+  const r=await fetch(path,{method:body!==undefined?'POST':'GET',
+    headers:{'Content-Type':'application/json','X-PC':'1','X-Admin-Key':KEY,...(OTP?{'X-Admin-OTP':OTP}:{})},
+    body:body!==undefined?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){ if(j.need_otp){OTP=prompt('2FA code from your authenticator:')||'';if(OTP){localStorage.setItem('pc_otp',OTP);return api(path,body);}} throw new Error(j.error||'request failed'); }
+  return j;
+}
+
+/* ---------- login ---------- */
+async function saveKey(){
+  KEY=$('keyInput').value.trim(); OTP=$('otpInput').value.trim();
+  try{ await api('/api/admin/overview'); localStorage.setItem('pc_admin',KEY); if(OTP)localStorage.setItem('pc_otp',OTP); enter(); }
+  catch(e){ $('loginMsg').textContent=e.message; }
+}
+function enter(){ $('login').classList.add('hidden'); $('app').classList.remove('hidden'); showTab('overview'); }
+
+/* ---------- tabs ---------- */
+const TABS=[['overview','📊 Overview'],['catalog','🎁 Catalog'],['categories','🏷️ Categories'],['memberships','👑 Memberships'],
+  ['pages','📄 Pages'],['site','🎨 Site'],['users','👥 Users'],['raffles','🎟️ Raffles'],['security','🔐 Security'],['audit','🧾 Audit']];
+$('tabs').innerHTML=TABS.map(([k,l])=>`<button class="tab" data-t="${k}" onclick="showTab('${k}')">${l}</button>`).join('');
+const LOADERS={overview:loadOverview,catalog:loadCatalog,categories:loadCategories,memberships:loadTiers,
+  pages:loadPages,site:loadSite,users:loadUsers,raffles:loadRaffles,security:loadSecurity,audit:loadAudit};
+function showTab(k){
+  document.querySelectorAll('[data-tab]').forEach(el=>el.classList.toggle('hidden',el.dataset.tab!==k));
+  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('on',el.dataset.t===k));
+  LOADERS[k]().catch(e=>alert(e.message));
+}
+
+/* ---------- overview (RTP dials) ---------- */
+async function loadOverview(){
+  const j=await api('/api/admin/overview');
+  const t=j.totals;
+  $('stats').innerHTML=`
+    <div class="stat"><b>${fmt(t.users)}</b><span>players</span></div>
+    <div class="stat"><b>${fmt(t.opens)}</b><span>opens</span></div>
+    <div class="stat"><b>${fmt(t.wagered)}</b><span>tokens wagered</span></div>
+    <div class="stat"><b>${fmt(t.paid_out)}</b><span>tokens paid out</span></div>
+    <div class="stat"><b>${t.realized_rtp==null?'—':(t.realized_rtp*100).toFixed(2)+'%'}</b><span>realized RTP</span></div>
+    <div class="stat"><b>${fmt(t.tokens_sold)}</b><span>tokens sold</span></div>`;
+  $('cases').innerHTML=j.cases.map(caseBlock).join('');
+}
+function rtpClass(r){return r>.95?'rtp-bad':r>.85?'rtp-warn':'rtp-good'}
+function caseBlock(st){
+  const c=st.case;
+  return `<div class="panel">
+    <div class="case-head"><h3>${c.emoji} ${esc(c.name)}</h3>
+      <span class="tag">${c.open_style}</span><span class="tag">price ${fmt(c.price)} 🪙</span>
+      <span class="tag">${c.active?'LIVE':'HIDDEN'}</span>
+      <span class="tag">EV ${st.ev} 🪙</span>
+      <b class="${rtpClass(st.rtp)}">RTP ${(st.rtp*100).toFixed(2)}% · house ${(st.houseEdge*100).toFixed(2)}%</b></div>
+    <div class="tune">
+      🎚️ <b>Win-rate dial</b>
+      <input type="range" min="50" max="98" value="${Math.round(st.rtp*100)}" oninput="this.nextElementSibling.textContent=this.value+'%'"
+        onchange="tune(${c.id},this.value,this)">
+      <b>${Math.round(st.rtp*100)}%</b>
+      <span style="color:var(--dim);font-size:.8rem;font-weight:800">drag → weights auto-solve to that exact RTP</span>
+      <span class="msg"></span>
+    </div>
+    <table><thead><tr><th>item</th><th>rarity</th><th>value 🪙</th><th>weight</th><th>odds</th><th>image url</th><th></th></tr></thead><tbody>
+      ${st.items.map(i=>`<tr>
+        <td>${i.emoji} ${esc(i.name)}</td><td>${i.rarity}</td>
+        <td><input class="sm" type="number" value="${i.value}" id="v${i.id}"></td>
+        <td><input class="sm" type="number" step="0.0001" value="${(+i.weight).toFixed(4)}" id="w${i.id}"></td>
+        <td class="mono">${(i.probability*100).toFixed(3)}%</td>
+        <td><input style="width:150px" value="${esc(i.image||'')}" id="img${i.id}" placeholder="/uploads/…"></td>
+        <td><button class="sm" onclick="saveItem(${i.id},${c.id})">save</button></td></tr>`).join('')}
+    </tbody></table>
+  </div>`;
+}
+async function tune(caseId,val,el){
+  try{ await api(`/api/admin/cases/${caseId}/tune`,{target_rtp:val/100});
+    el.closest('.tune').querySelector('.msg').textContent='✔ weights re-solved to '+val+'%';
+    setTimeout(loadOverview,600);
+  }catch(e){alert(e.message)}
+}
+async function saveItem(id,caseId){
+  try{ await api(`/api/admin/items/${id}`,{value:+$('v'+id).value,weight:+$('w'+id).value,image:$('img'+id).value||null});
+    loadOverview();
+  }catch(e){alert(e.message)}
+}
+
+/* ---------- catalog (CMS) ---------- */
+let CATLIST=[];
+async function loadCatalog(){
+  const cats=await api('/api/admin/categories');CATLIST=cats.categories;
+  $('ncCat').innerHTML='<option value="">no category</option>'+CATLIST.map(c=>`<option value="${c.id}">${c.emoji} ${esc(c.name)}</option>`).join('');
+  const j=await api('/api/admin/overview');
+  $('catalogCases').innerHTML=j.cases.map(st=>{
+    const c=st.case;
+    return `<div class="panel">
+      <div class="case-head"><h3>${c.emoji} ${esc(c.name)}</h3><span class="tag">${c.active?'LIVE':'HIDDEN'}</span></div>
+      <div class="flex">
+        <input id="cn${c.id}" value="${esc(c.name)}" placeholder="name"><input id="ce${c.id}" class="sm" value="${esc(c.emoji)}">
+        <input id="cp${c.id}" class="sm" type="number" value="${c.price}" placeholder="price">
+        <select id="cs${c.id}">${['spinner','chest','pack','wheel'].map(s=>`<option ${s===c.open_style?'selected':''}>${s}</option>`).join('')}</select>
+        <select id="cc${c.id}"><option value="">no category</option>${CATLIST.map(x=>`<option value="${x.id}" ${x.id===c.category_id?'selected':''}>${x.emoji} ${esc(x.name)}</option>`).join('')}</select>
+        <label style="font-weight:800;color:var(--dim)"><input type="checkbox" id="cf${c.id}" ${c.featured?'checked':''}> ⭐ featured</label>
+        <label style="font-weight:800;color:var(--dim)"><input type="checkbox" id="ca${c.id}" ${c.active?'checked':''}> live</label>
+        <button class="sm lime" onclick="saveCrate(${c.id})">save</button>
+        <button class="sm warn" onclick="deleteCrate(${c.id})">delete</button>
+      </div>
+      <div class="flex" style="margin-top:10px">
+        <input id="in${c.id}" placeholder="new item name" style="min-width:150px"><input id="ie${c.id}" class="sm" placeholder="emoji" value="🎁">
+        <input id="iv${c.id}" class="sm" type="number" placeholder="value 🪙"><input id="iw${c.id}" class="sm" type="number" placeholder="weight" value="10">
+        <select id="ir${c.id}">${['common','uncommon','rare','epic','legendary','mythic'].map(r=>`<option>${r}</option>`).join('')}</select>
+        <button class="sm pink" onclick="addItem(${c.id})">＋ add item</button>
+        <span style="color:var(--dim);font-size:.78rem;font-weight:800">${st.items.length} items · RTP ${(st.rtp*100).toFixed(1)}%</span>
+      </div>
+      <table style="margin-top:8px"><tbody>
+        ${st.items.map(i=>`<tr><td>${i.emoji} ${esc(i.name)}</td><td>${i.rarity}</td><td class="mono">${(i.probability*100).toFixed(3)}%</td>
+          <td><button class="sm warn" onclick="delItem(${i.id})">✕</button></td></tr>`).join('')}
+      </tbody></table>
+    </div>`;
+  }).join('');
+  loadMedia();
+}
+async function createCrate(){
+  try{
+    const j=await api('/api/admin/cases/create',{name:$('ncName').value,emoji:$('ncEmoji').value,price:+$('ncPrice').value,
+      draws:+$('ncDraws').value,open_style:$('ncStyle').value,color:$('ncColor').value,description:$('ncDesc').value,
+      category_id:$('ncCat').value||null});
+    $('ncMsg').textContent='✔ created "'+j.slug+'" — add items, dial RTP, then flip it live';
+    loadCatalog();
+  }catch(e){$('ncMsg').textContent=e.message}
+}
+async function saveCrate(id){
+  try{ await api(`/api/admin/cases/${id}/edit`,{name:$('cn'+id).value,emoji:$('ce'+id).value,price:+$('cp'+id).value,
+      open_style:$('cs'+id).value,category_id:$('cc'+id).value||null,featured:$('cf'+id).checked,active:$('ca'+id).checked});
+    loadCatalog();
+  }catch(e){alert(e.message)}
+}
+async function deleteCrate(id){
+  if(!confirm('Delete this crate? (crates with open history get retired instead)'))return;
+  try{ const j=await api(`/api/admin/cases/${id}/delete`,{}); if(j.note)alert(j.note); loadCatalog(); }catch(e){alert(e.message)}
+}
+async function addItem(id){
+  try{ await api(`/api/admin/cases/${id}/items`,{name:$('in'+id).value,emoji:$('ie'+id).value,value:+$('iv'+id).value,
+      weight:+$('iw'+id).value,rarity:$('ir'+id).value});
+    loadCatalog();
+  }catch(e){alert(e.message)}
+}
+async function delItem(id){ try{ await api(`/api/admin/items/${id}/delete`,{}); loadCatalog(); }catch(e){alert(e.message)} }
+async function uploadMedia(){
+  const f=$('mediaFile').files[0];
+  if(!f)return $('mediaMsg').textContent='pick a file first';
+  const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
+  try{ const j=await api('/api/admin/media',{data:b64,mime:f.type}); $('mediaMsg').textContent='✔ '+j.url; loadMedia(); }
+  catch(e){$('mediaMsg').textContent=e.message}
+}
+async function loadMedia(){
+  try{ const j=await api('/api/admin/media');
+    $('mediaList').innerHTML=j.files.map(f=>`<span class="flex" style="gap:6px"><img class="thumb" src="${f.url}"><span class="mono" style="font-size:.7rem">${f.url}</span></span>`).join('')||'<span class="sub">no uploads yet</span>';
+  }catch(e){}
+}
+
+/* ---------- categories ---------- */
+async function loadCategories(){
+  const j=await api('/api/admin/categories');
+  $('catRows').innerHTML=j.categories.map(c=>`<tr>
+    <td><input class="sm" id="ke${c.id}" value="${esc(c.emoji)}"></td>
+    <td><input id="kn${c.id}" value="${esc(c.name)}"></td>
+    <td><input id="kb${c.id}" value="${esc(c.blurb)}" style="width:100%"></td>
+    <td><input class="sm" id="ks${c.id}" type="number" value="${c.sort}"></td>
+    <td><input type="checkbox" id="ka${c.id}" ${c.active?'checked':''}></td>
+    <td><button class="sm" onclick="saveCat(${c.id})">save</button></td></tr>`).join('');
+}
+async function createCat(){
+  try{ await api('/api/admin/categories',{name:$('catName').value,emoji:$('catEmoji').value,blurb:$('catBlurb').value,sort:+$('catSort').value});
+    $('catMsg').textContent='✔ added'; loadCategories();
+  }catch(e){$('catMsg').textContent=e.message}
+}
+async function saveCat(id){
+  try{ await api(`/api/admin/categories/${id}`,{name:$('kn'+id).value,emoji:$('ke'+id).value,blurb:$('kb'+id).value,
+      sort:+$('ks'+id).value,active:$('ka'+id).checked}); loadCategories();
+  }catch(e){alert(e.message)}
+}
+
+/* ---------- memberships ---------- */
+async function loadTiers(){
+  const j=await api('/api/admin/tiers');
+  $('tierRows').innerHTML=j.tiers.map(t=>`<div class="panel" style="background:var(--panel2)">
+    <div class="flex">
+      <b style="font-size:1.2rem">${t.emoji}</b><input id="tn${t.id}" value="${esc(t.name)}">
+      <label class="sub">$/mo <input class="sm" id="tp${t.id}" type="number" step="0.01" value="${t.price_usd}"></label>
+      <label class="sub">rakeback bps <input class="sm" id="tr${t.id}" type="number" value="${t.rakeback_bps}"></label>
+      <label class="sub">daily 🪙 <input class="sm" id="td${t.id}" type="number" value="${t.daily_bonus}"></label>
+      <label class="sub">xp boost bps <input class="sm" id="tx${t.id}" type="number" value="${t.xp_boost_bps}"></label>
+      <button class="sm lime" onclick="saveTier(${t.id})">save</button>
+    </div>
+    <textarea id="tk${t.id}" style="min-height:80px;margin-top:8px">${esc(JSON.parse(t.perks||'[]').join('\n'))}</textarea>
+  </div>`).join('');
+}
+async function saveTier(id){
+  try{ await api(`/api/admin/tiers/${id}`,{name:$('tn'+id).value,price_usd:+$('tp'+id).value,rakeback_bps:+$('tr'+id).value,
+      daily_bonus:+$('td'+id).value,xp_boost_bps:+$('tx'+id).value,perks:$('tk'+id).value.split('\n').map(s=>s.trim()).filter(Boolean)});
+    loadTiers();
+  }catch(e){alert(e.message)}
+}
+
+/* ---------- pages ---------- */
+let PAGES=[];
+async function loadPages(){
+  const j=await api('/api/admin/pages');PAGES=j.pages;
+  $('pageSelect').innerHTML='<option value="">— new page —</option>'+PAGES.map(p=>`<option value="${p.slug}">${esc(p.title)}</option>`).join('');
+}
+function pickPage(){
+  const p=PAGES.find(x=>x.slug===$('pageSelect').value);
+  $('pageSlug').value=p?p.slug:''; $('pageTitleIn').value=p?p.title:''; $('pageBodyIn').value=p?p.body:''; $('pagePub').checked=p?!!p.published:true;
+}
+async function savePage(){
+  const slug=$('pageSlug').value.trim();
+  if(!slug)return $('pageMsg').textContent='slug required';
+  try{ await api(`/api/admin/pages/${slug}`,{title:$('pageTitleIn').value,body:$('pageBodyIn').value,published:$('pagePub').checked});
+    $('pageMsg').textContent='✔ published'; loadPages();
+  }catch(e){$('pageMsg').textContent=e.message}
+}
+async function deletePage(){
+  const slug=$('pageSlug').value.trim(); if(!slug||!confirm('Delete page "'+slug+'"?'))return;
+  try{ await api(`/api/admin/pages/${slug}/delete`,{}); $('pageMsg').textContent='deleted'; loadPages(); pickPage(); }
+  catch(e){$('pageMsg').textContent=e.message}
+}
+
+/* ---------- site ---------- */
+async function loadSite(){
+  const j=await api('/api/admin/site');
+  $('siteHero').value=j.hero_title||'';$('siteSub').value=j.hero_sub||'';$('siteAnn').value=j.announcement||'';
+}
+async function saveSite(){
+  try{ await api('/api/admin/site',{hero_title:$('siteHero').value,hero_sub:$('siteSub').value,announcement:$('siteAnn').value});
+    $('siteMsg').textContent='✔ live on the homepage';
+  }catch(e){$('siteMsg').textContent=e.message}
+}
+
+/* ---------- users ---------- */
+async function loadUsers(){
+  const j=await api('/api/admin/users');
+  $('userRows').innerHTML=j.users.map(u=>`<tr><td>${u.id}</td><td>${esc(u.username)}</td><td>${fmt(u.balance)}</td>
+    <td>${esc(u.tier||'free')}</td><td>${fmt(u.xp||0)}</td>
+    <td><input class="sm" type="number" id="adj${u.id}" placeholder="±"><button class="sm" onclick="adjust(${u.id})">apply</button></td></tr>`).join('');
+}
+async function adjust(id){
+  try{ await api(`/api/admin/users/${id}/balance`,{delta:+$('adj'+id).value}); loadUsers(); }catch(e){alert(e.message)}
+}
+
+/* ---------- raffles ---------- */
+async function loadRaffles(){
+  const j=await fetch('/api/raffles').then(r=>r.json());
+  $('raffleRows').innerHTML=j.raffles.map(r=>`<tr><td>${r.id}</td><td>${r.emoji} ${esc(r.name)}</td>
+    <td>${r.sold}/${r.max_tickets}</td><td>${r.status}</td><td class="mono">${r.ends_at}</td>
+    <td>${r.status==='open'?`<button class="sm pink" onclick="drawNow(${r.id})">draw now</button>`:''}</td></tr>`).join('');
+}
+async function createRaffle(){
+  try{ await api('/api/admin/raffles',{name:$('rName').value,emoji:$('rEmoji').value,prize_value:+$('rPrize').value,
+      ticket_price:+$('rTicket').value,max_tickets:+$('rMax').value,hours:+$('rHours').value});
+    $('rMsg').textContent='✔ raffle live'; loadRaffles();
+  }catch(e){$('rMsg').textContent=e.message}
+}
+async function drawNow(id){ try{ await api(`/api/admin/raffles/${id}/draw`,{}); loadRaffles(); }catch(e){alert(e.message)} }
+
+/* ---------- security ---------- */
+async function loadSecurity(){
+  const j=await api('/api/admin/security');
+  $('totpOn').classList.toggle('hidden',!j.totp_enabled);
+  $('totpOff').classList.toggle('hidden',j.totp_enabled);
+  $('lockRows').innerHTML=j.recent_lockouts.length
+    ?j.recent_lockouts.map(l=>`<tr><td class="mono">${esc(l.key)}</td><td>${l.fails}</td></tr>`).join('')
+    :'<tr><td colspan="2" class="sub">all quiet 🌙</td></tr>';
+}
+async function totpSetup(){
+  try{ const j=await api('/api/admin/security/totp/setup',{});
+    $('totpPending').classList.remove('hidden');
+    $('totpSecret').textContent=j.secret; $('totpUri').textContent=j.otpauth;
+  }catch(e){$('totpMsg').textContent=e.message}
+}
+async function totpConfirm(){
+  try{ await api('/api/admin/security/totp/confirm',{code:$('totpCode').value});
+    OTP=$('totpCode').value;localStorage.setItem('pc_otp',OTP);
+    $('totpMsg').textContent='✔ 2FA enabled — codes now required';
+    loadSecurity();
+  }catch(e){$('totpMsg').textContent=e.message}
+}
+async function totpDisable(){
+  if(!confirm('Turn off two-factor?'))return;
+  try{ await api('/api/admin/security/totp/disable',{}); OTP='';localStorage.removeItem('pc_otp'); $('totpMsg').textContent='2FA disabled'; loadSecurity(); }
+  catch(e){$('totpMsg').textContent=e.message}
+}
+
+/* ---------- audit ---------- */
+async function loadAudit(){
+  const j=await api('/api/admin/audit');
+  $('auditRows').innerHTML=j.log.map(l=>`<tr><td class="mono">${l.created_at}</td><td>${esc(l.actor)}</td><td>${esc(l.action)}</td>
+    <td class="mono" style="font-size:.72rem">${esc(l.meta)}</td></tr>`).join('');
+}
+
+/* ---------- boot ---------- */
+if(KEY){ api('/api/admin/overview').then(enter).catch(()=>{}); }
+</script>
+</body>
+</html>
